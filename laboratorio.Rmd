@@ -1,0 +1,230 @@
+---
+title: "Laboratorio de Análisis e Interpretación de Datos"
+author: "Jimmy Molina"
+date: "2024-02-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+# Análisis de Sabor de Barras de Chocolate
+
+## Planteamiento del Problema
+
+Uno de los dulces más populares entre la población en general es el chocolate, el cual se consume en todo el mundo. Por esta misma razón, no todas las barras de chocolate tienen las mismas características, así que analizaremos las calificaciones realizadas por críticos especializados a cientos de barras de chocolate, para tratar de determinar qué influye más nuestra percepción respecto al sabor del chocolate.
+
+## Descripción del Dataset
+
+### **Fuente de datos**
+
+Las calificaciones y características de las barras de chocolate del dataset utilizado fueron recopiladas por Brady Brelinski, miembro fundador del Manhattan Chocolate Society. Para mayor información, visitar <http://flavorsofcacao.com/index.html>.
+
+### **Exploración de datos**
+
+Para iniciar con la exploración de datos, primero cargamos las librerías que utilizaremos.
+
+```{r Carga inicial de librerías, include=FALSE}
+requiredPackages <- c("arsenal", "car", "corrplot", "dplyr", "DescTools", "foreign", "e1071", "expss", "GGally", "ggplot2", "haven", "knitr","mosaic", "plotly", "table1", "tableone", "tidyverse", "SmartEDA","nortest","ggpubr", "questionr")
+
+loadLibraries <- function(pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+  if (length(new.pkg))
+    install.packages(new.pkg, dependencies = TRUE)
+  sapply(pkg, require, character.only = TRUE)
+}
+
+loadLibraries(requiredPackages)
+```
+
+Luego cargamos el dataset.
+
+```{r Carga del dataset}
+flavors_df <- read_csv('flavors_of_cacao.csv')
+```
+Una vez cargado el dataset, exploraremos las dimensiones del dataset, su estructura, los tipos de cada variable y algunos valores de ejemplo.
+
+```{r exploración de Datos}
+# ver dataset y nombre de campos
+head(flavors_df)
+colnames(flavors_df)
+
+# ver estructura del dataset y resumen estadístico de cada campo
+str(flavors_df)
+summary(flavors_df)
+```
+El dataset a emplear contiene calificaciones de 1795 barras de chocolate individuales junto con sus características de origen y tipo de chocolate, como la región de origen, el porcentaje de cacao utilizado, la variedad de grano de cacao utilizado y dónde fue cultivado. Estas calificaciones se han realizado desde 2006 hasta 2017.
+
+### **Limpieza de datos**
+
+Como resultado de la exploración de datos, hemos identificado que algunos nombres de columnas tienen espacios y saltos de línea innecesarios, así como signos de porcentaje en los valores de la columna Cocoa_Percent que no permiten procesar la variable como número. Por lo tanto, procederemos a eliminarlos.
+
+```{r limpieza de datos}
+# revisar si hay filas con campos vacíos o NA
+sum(rowSums(flavors_df == "") > 0)
+sum(apply(flavors_df, 1, is.na) > 0)
+
+# eliminar espacios y saltos de línea en nombres
+colnames(flavors_df) <- gsub('\n', '_', colnames(flavors_df))
+colnames(flavors_df) <- gsub("[[:space:]+]", "_", colnames(flavors_df))
+
+# renombrar campo 'Company'
+flavors_df <- flavors_df %>%
+  rename(Company = `Company _(Maker-if_known)`)
+colnames(flavors_df)
+
+# remover % del campo 'Cocoa_Percent'
+flavors_df$Cocoa_Percent <- sapply(flavors_df$Cocoa_Percent, function(x) gsub("%", "", x))
+flavors_df <- type_convert(flavors_df)
+str(flavors_df)
+```
+Como resultado, hemos comprobado que el dataset contiene las siguientes variables:
+
+* Company: Variable tipo texto que indica el nombre de la compañía que fabrica la barra de chocolate.
+* Specific_Bean_Origin_or_Bar_Name: Variable tipo texto que indica la región de origen de la barra de chocolate.
+* REF: Variable tipo número de referencia a cuándo se ingresó el registro al dataset. Mientras más alto el valor, más recientemente fue ingresado.
+* Review_Date: Variable tipo número que indica el año de publicación de la calificación.
+* Cocoa_Percent: Variable tipo número que indica el porcentaje de cacao que tiene un chocolate.
+* Company_Location: Variable tipo texto que indica el nombre del país de origen del fabricante.
+* Rating: Variable tipo número que indica la calificación experta realizada a cada barra.
+* Bean_Type: Variable tipo texto que indica la variante de grano de cacao utilizado.
+* Broad_Bean_Origin: Variable tipo texto que indica la región de origen del grano de cacao utilizado.
+
+## Hipótesis Planteada
+
+Como resultado de explorar, limpiar y entender nuestro dataset, ahora podemos realizar preguntas específicas que queramos responder. Particularmente, planteamos las siguientes hipótesis:
+
+* Escenario 1: El chocolate de Ecuador es mejor que el de México.
+* Escenario 2: El chocolate que tenga 70% o más de cacao es mejor que el que tenga menos de 70%.
+
+## Escenario 1
+### Análisis Descriptivo
+
+A continuación se detalla el resumen estadístico de cada campo de nuestro dataset:
+
+```{r resumen estadístico}
+# resumen estadístico de variables
+summary(flavors_df)
+```
+
+De acuerdo a la hipótesis planteada, nos enfocaremos en la calificación y porcentaje de cacao, cuyas medias y desviaciones estándar son:
+
+```{r media y sd de cacao y rating}
+cacao_pct_mean <- mean(flavors_df$Cocoa_Percent)
+cacao_pct_sd <- sd(flavors_df$Cocoa_Percent)
+rating_mean <- mean(flavors_df$Rating)
+rating_sd <- sd(flavors_df$Rating)
+label_stats <- c('cacao_pct_mean', 'cacao_pct_sd', 'rating_mean', 'rating_sd')
+stats <- c(cacao_pct_mean, cacao_pct_sd, rating_mean, rating_sd)
+stats_cacao_df <- data.frame(label_stats, stats)
+print(stats_cacao_df)
+```
+Adicionalmente, veremos la media y desviación estandar de estos campos segregados por año desde el 2006 hasta el 2017:
+
+```{r Medias grupales}
+# ver promedio y desviación estandar de calificación por año
+sumary_Cacao_Rating_df <- flavors_df %>%
+                            group_by(Review_Date) %>%
+                            summarize(averageRating = mean(Rating), sdRating = sd(Rating),
+                                      averageCacaoPct = mean(Cocoa_Percent), sdCacaoPct = sd(Cocoa_Percent))
+print(sumary_Cacao_Rating_df)
+```
+Así mismo, evualuaremos la correlación entre el porcentaje de cacao y la calificación recibida:
+
+```{r correlación entre porcentaje de cacao y calificación}
+# correlación entre porcentaje de cacao y calificación
+corr_Cacao_Rating = cor(flavors_df$Cocoa_Percent, flavors_df$Rating)
+print(corr_Cacao_Rating)
+```
+La correlación entre el porcentaje de cacao y la calificación de la barra de chocolate es de -0.16, lo cual indica una débil correlación negativa; es decir, al incrementarse el porcentaje de cacao, la calificación se reduce en baja proporción al haber una relación débil. Por lo tanto, no es significativa.
+
+Finalmente, evaluaremos la media de calificación de las barras de chocolate agrupadas en las dos categorías de interés de nuestra hipótesis, menos de 70% de cacao y 70% o más:
+
+```{r media de calificación por grupo de cacao}
+# crear columna que segregue el chocolate en dos grupos, <70 y >=70% de cacao
+# Define breaks (ranges)
+breaks_cacao <- c(0, 69, 100)
+# Create buckets (labels)
+labels_cacao <- c("0-69", "70-100")
+# Add a new column with bucket labels
+flavors_df$cacao_groups <- cut(flavors_df$Cocoa_Percent, breaks = breaks_cacao, labels = labels_cacao)
+# ver nueva columna
+str(flavors_df)
+head(flavors_df)
+
+# calificación media para cada grupo según porcentaje de cacao
+mean_cacao_groups <- flavors_df %>%
+  group_by(cacao_groups) %>%
+  summarise(mean_Rating = mean(Rating))
+print(mean_cacao_groups)
+```
+
+El tamaño de cada grupo es:
+
+```{r conteo por grupo de cacao}
+
+# conteo de calificaciones por grupo
+cacao_group_count <- table(flavors_df$cacao_groups)
+print(cacao_group_count)
+```
+Gráficamente, podemos ver la distribución de calificaciones y porcentajes de cacao:
+```{r plot agrupado por calificaciones, echo=FALSE}
+ggplot(flavors_df) + geom_bar(mapping = aes(x = Rating, fill = cacao_groups)) + labs(title = 'Barras de chocolate agrupadas por calificaciones y % cacao')
+```
+
+```{r plot agrupado por porcentaje de cacao, echo=FALSE}
+ggplot(flavors_df) + geom_bar(mapping = aes(x = cacao_groups)) + labs(title = 'Barras de chocolate por grupo de % de cacao')
+```
+
+Según estos resultados, podemos concluir que no hay diferencia significativa en calificación entre las barras de chocolate con porcentaje de cacao menor a 70% y con 70% o más.
+
+```{r}
+ggplot(flavors_df) + geom_boxplot(mapping = aes(x = cacao_groups, y = Rating)) + labs(title = 'Distribución de Calificaciones de Barras de Chocolate por % Cacao')
+
+```
+
+```{r}
+var.test(c_Ahorro ~ trata_new, data = df) # 
+t.test(c_Ahorro ~ trata_new, data = df, alternative='greater', var.equal = FALSE)
+table(df$trata_new) 
+
+flavors_df_0_69 <- flavors_df[flavors_df$cacao_groups == '0-69', ]
+str(flavors_df_0_69)
+flavors_df_70_100 <- flavors_df[flavors_df$cacao_groups == '70-100', ]
+str(flavors_df_70_100)
+
+t.test(flavors_df_0_69$Rating, flavors_df_70_100$Rating)
+
+```
+
+
+### Escenario 2
+
+```{r}
+# ver promedio y desviación estandar de calificación por año
+
+flavors_df_ec <- flavors_df[flavors_df$Broad_Bean_Origin == 'Ecuador', ]
+str(flavors_df_ec)
+flavors_df_mx <- flavors_df[flavors_df$Broad_Bean_Origin == 'Mexico', ]
+str(flavors_df_mx)
+
+sumary_Cacao_Rating_ec <- flavors_df_ec %>%
+                            group_by(Review_Date) %>%
+                            summarize(meanRating_ec = mean(Rating),
+                                      sdRating_ec = sd(Rating))
+
+print(sumary_Cacao_Rating_df)
+
+sumary_Cacao_Rating_mx <- flavors_df_mx %>%
+                            group_by(Review_Date) %>%
+                            summarize(meanRating_mx = mean(Rating),
+                                      sdRating_mx = sd(Rating))
+
+print(sumary_Cacao_Rating_df)
+
+count_if(flavors_df$Company_Location == 'France', flavors_df$Review_Date)
+count(flavors_df$Company_Location)
+
+str(flavors_df)
+```

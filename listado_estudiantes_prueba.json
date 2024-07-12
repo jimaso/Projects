@@ -1,50 +1,53 @@
-[{
-  "alumno":"Jimmy",
-  "nota":10,
-  "ranking":1
- },
- {
-  "alumno":"Juan",
-  "nota":9.5,
-  "ranking":2
- },
 {
-  "alumno":"Francisco",
-  "nota":8.4,
-  "ranking":3
- },
-{
-  "alumno":"Bianca",
-  "nota":8.3,
-  "ranking":4
- },
-{
-  "alumno":"Francisca",
-  "nota":7.9,
-  "ranking":5
- },
-{
-  "alumno":"Alessia",
-  "nota":6.5,
-  "ranking":6
- },
-{
-  "alumno":"Fiorella",
-  "nota":6.1,
-  "ranking":7
- },
-{
-  "alumno":"Dahiana",
-  "nota":4,
-  "ranking":8
- },
-{
-  "alumno":"Valeria",
-  "nota":4,
-  "ranking":9
- },
-{
-  "alumno":"JM",
-  "nota":1,
-  "ranking":10
- }]
+  "lista":[
+     {
+      "alumno":"Jimmy",
+      "nota":10,
+      "ranking":1
+     },
+     {
+      "alumno":"Juan",
+      "nota":9.5,
+      "ranking":2
+     },
+    {
+      "alumno":"Francisco",
+      "nota":8.4,
+      "ranking":3
+     },
+    {
+      "alumno":"Bianca",
+      "nota":8.3,
+      "ranking":4
+     },
+    {
+      "alumno":"Francisca",
+      "nota":7.9,
+      "ranking":5
+     },
+    {
+      "alumno":"Alessia",
+      "nota":6.5,
+      "ranking":6
+     },
+    {
+      "alumno":"Fiorella",
+      "nota":6.1,
+      "ranking":7
+     },
+    {
+      "alumno":"Dahiana",
+      "nota":4,
+      "ranking":8
+     },
+    {
+      "alumno":"Valeria",
+      "nota":4,
+      "ranking":9
+     },
+    {
+      "alumno":"JM",
+      "nota":1,
+      "ranking":10
+     }]
+}
